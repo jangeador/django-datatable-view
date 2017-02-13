@@ -9,8 +9,6 @@ try:
 except ImportError:
     pass
 
-from django.db import models
-from django.db.models import Count
 from django.db.models.fields import FieldDoesNotExist
 from django.template.loader import render_to_string
 try:
@@ -261,9 +259,10 @@ class Datatable(six.with_metaclass(DatatableMetaclass)):
         if config['unsortable_columns'] is None:
             config['unsortable_columns'] = []
 
-        for option in ['search', 'start_offset', 'page_length', 'ordering']:
-            normalizer_f = getattr(self, 'normalize_config_{}'.format(option))
-            config[option] = normalizer_f(config, query_config)
+        config['search'] = self.normalize_config_search(config, query_config)
+        config['start_offset'] = self.normalize_config_start_offset(config, query_config)
+        config['page_length'] = self.normalize_config_page_length(config, query_config)
+        config['ordering'] = self.normalize_config_ordering(config, query_config)
 
         return config
 
@@ -295,30 +294,23 @@ class Datatable(six.with_metaclass(DatatableMetaclass)):
         return page_length
 
     def normalize_config_ordering(self, config, query_config):
-        # For "n" columns (iSortingCols), the queried values iSortCol_0..iSortCol_n are used as
-        # column indices to check the values of sSortDir_X and bSortable_X
-
         default_ordering = config['ordering']
+        if default_ordering is None and config['model']:
+            default_ordering = config['model']._meta.ordering
+
+        sort_declarations = [k for k in query_config if re.match(r'^order\[\d+\]\[column\]$', k)]
+
+        # Default sorting from view or model definition
+        if len(sort_declarations) == 0:
+            return default_ordering
+
         ordering = []
         columns_list = list(self.columns.values())
 
-        try:
-            num_sorting_columns = int(query_config.get(OPTION_NAME_MAP['num_sorting_columns'], 0))
-        except ValueError:
-            num_sorting_columns = 0
-
-        # Default sorting from view or model definition
-        if num_sorting_columns == 0:
-            return default_ordering
-
-        for sort_queue_i in range(num_sorting_columns):
+        for sort_queue_i in range(len(columns_list)):
             try:
                 column_index = int(query_config.get(OPTION_NAME_MAP['sort_column'] % sort_queue_i, ''))
             except ValueError:
-                continue
-
-            # Reject out-of-range sort requests
-            if column_index >= len(columns_list):
                 continue
 
             column = columns_list[column_index]
@@ -329,7 +321,6 @@ class Datatable(six.with_metaclass(DatatableMetaclass)):
 
             sort_direction = query_config.get(OPTION_NAME_MAP['sort_column_direction'] % sort_queue_i, None)
 
-            sort_modifier = None
             if sort_direction == 'asc':
                 sort_modifier = ''
             elif sort_direction == 'desc':
@@ -340,8 +331,8 @@ class Datatable(six.with_metaclass(DatatableMetaclass)):
 
             ordering.append('%s%s' % (sort_modifier, column.name))
 
-        if not ordering and config['model']:
-            return config['model']._meta.ordering
+        if not ordering:
+            return default_ordering
         return ordering
 
     def resolve_virtual_columns(self, *names):
@@ -512,13 +503,18 @@ class Datatable(six.with_metaclass(DatatableMetaclass)):
             # Have to sort the whole queryset by hand!
             object_list = list(object_list)
 
+            def flatten(value):
+                if isinstance(value, (list, tuple)):
+                    return flatten(value[0])
+                return value
+
             for name in virtual[::-1]:  # stable sorting, top priority sort comes last
                 reverse = False
                 if name[0] in '+-':
                     reverse = (name[0] == '-')
                     name = name[1:]
                 column = self.columns[name]
-                object_list.sort(key=lambda o: column.value(o)[0], reverse=reverse)
+                object_list.sort(key=lambda o: flatten(column.value(o)[0]), reverse=reverse)
 
         return object_list
 
@@ -592,7 +588,9 @@ class Datatable(six.with_metaclass(DatatableMetaclass)):
 
             if six.PY2 and isinstance(value, str):  # not unicode
                 value = value.decode('utf-8')
-            data[str(i)] = six.text_type(value)
+            if value is not None:
+                value = six.text_type(value)
+            data[str(i)] = value
         return data
 
     def get_column_value(self, obj, column, **kwargs):

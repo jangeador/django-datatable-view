@@ -8,7 +8,7 @@ try:
 except ImportError:
     pass
 
-from django import get_version
+import django
 from django.db import models
 from django.db.models import Model, Manager, Q
 from django.db.models.fields import FieldDoesNotExist
@@ -288,19 +288,20 @@ class Column(six.with_metaclass(ColumnMetaclass)):
         # We avoid making changes that the Django ORM can already do for us
         multi_terms = None
 
-        if lookup_type == "in":
-            in_bits = re.split(r',\s*', term)
-            if len(in_bits) > 1:
-                multi_terms = in_bits
-            else:
-                term = None
+        if isinstance(term, six.text_type):
+            if lookup_type == "in":
+                in_bits = re.split(r',\s*', term)
+                if len(in_bits) > 1:
+                    multi_terms = in_bits
+                else:
+                    term = None
 
-        if lookup_type == "range":
-            range_bits = re.split(r'\s*-\s*', term)
-            if len(range_bits) == 2:
-                multi_terms = range_bits
-            else:
-                term = None
+            if lookup_type == "range":
+                range_bits = re.split(r'\s*-\s*', term)
+                if len(range_bits) == 2:
+                    multi_terms = range_bits
+                else:
+                    term = None
 
         if multi_terms:
             return filter(None, (self.prep_search_value(multi_term, lookup_type) for multi_term in multi_terms))
@@ -354,7 +355,11 @@ class Column(six.with_metaclass(ColumnMetaclass)):
             for sub_source in self.expand_source(source):
                 modelfield = resolve_orm_path(model, sub_source)
                 if modelfield.choices:
-                    for db_value, label in modelfield.get_flatchoices():
+                    if hasattr(modelfield, 'get_choices'):
+                        choices = modelfield.get_choices()
+                    else:
+                        choices = modelfield.get_flatchoices()
+                    for db_value, label in choices:
                         if term.lower() in label.lower():
                             k = '%s__exact' % (sub_source,)
                             column_queries.append(Q(**{k: str(db_value)}))
@@ -470,7 +475,7 @@ class DateTimeColumn(DateColumn):
     lookups_types = ('exact', 'in', 'range', 'year', 'month', 'day', 'week_day')
 
 
-if get_version().split('.') >= ['1', '6']:
+if django.VERSION >= (1, 6):
     DateTimeColumn.lookup_types += ('hour', 'minute', 'second')
 
 
@@ -481,7 +486,8 @@ class BooleanColumn(Column):
 
     def prep_search_value(self, term, lookup_type):
         term = term.lower()
-        if term == 'true':
+        # Allow column's own label to represent a true value
+        if term == 'true' or term.lower() in self.label.lower():
             term = True
         elif term == 'false':
             term = False
