@@ -16,9 +16,9 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.utils.encoding import smart_text
 from django.utils.safestring import mark_safe
 try:
-    from django.forms.util import flatatt
-except ImportError:
     from django.forms.utils import flatatt
+except ImportError:
+    from django.forms.util import flatatt
 from django.template.defaultfilters import slugify
 try:
     from django.utils.encoding import python_2_unicode_compatible
@@ -422,6 +422,13 @@ class Column(six.with_metaclass(ColumnMetaclass)):
 class TextColumn(Column):
     model_field_class = models.CharField
     handles_field_classes = [models.CharField, models.TextField, models.FileField]
+
+    # Add UUIDField if present in this version of Django
+    try:
+        handles_field_classes.append(models.UUIDField)
+    except AttributeError:
+        pass
+
     lookup_types = ('icontains', 'in')
 
 

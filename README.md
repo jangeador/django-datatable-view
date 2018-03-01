@@ -18,7 +18,7 @@ This package is used in conjunction with the jQuery plugin [DataTables](http://d
 
 Dependencies:
 
-* [Django](http://www.djangoproject.com/) >= 1.4
+* [Django](http://www.djangoproject.com/) >= 1.8
 * [dateutil](http://labix.org/python-dateutil) library for flexible, fault-tolerant date parsing.
 
 # Features at a glance
@@ -27,6 +27,7 @@ Dependencies:
 * ``MultipleDatatableView`` for configurating multiple Datatable specifications on a single view
 * ``ModelForm``-like declarative table design.
 * Support for ``ValuesQuerySet`` execution mode instead of object instances
+* Queryset caching between requests
 * Customizable table headers
 * Compound columns (columns representing more than one model field)
 * Columns backed by methods or callbacks instead of model fields

@@ -15,7 +15,7 @@ class DatatableTests(DatatableViewTestCase):
         self.assertEqual(dt.config['hidden_columns'], [])
         self.assertEqual(dt.config['search_fields'], [])
         self.assertEqual(dt.config['unsortable_columns'], [])
-        self.assertEqual(dt.config['search'], '')
+        self.assertEqual(dt.config['search'], set())
         self.assertEqual(dt.config['start_offset'], 0)
         self.assertEqual(dt.config['page_length'], 25)
         self.assertEqual(dt.config['ordering'], None)
@@ -394,6 +394,7 @@ class DatatableTests(DatatableViewTestCase):
                 return {'custom': 'data'}
 
         class FakeRequest(object):
+            method = 'GET'
             GET = {'sEcho': 0}
 
         dt = DT(queryset, '/')
@@ -619,7 +620,6 @@ class DatatableTests(DatatableViewTestCase):
         dt.populate_records()
         self.assertEquals(len(list(dt._records)), 0)
 
-
     def test_search_multiple_terms_use_AND(self):
         obj1 = models.ExampleModel.objects.create(name="test name 1")
         obj2 = models.ExampleModel.objects.create(name="test name 2")
@@ -692,6 +692,29 @@ class DatatableTests(DatatableViewTestCase):
         dt = DT(queryset, '/', query_config={'search[value]': 'test three'})
         dt.populate_records()
         self.assertEquals(list(dt._records), [])
+
+    def test_search_term_queries_extra_fields(self):
+        r1 = models.RelatedModel.objects.create(name="test related 1 one")
+        r2 = models.RelatedModel.objects.create(name="test related 2 two")
+        obj1 = models.ExampleModel.objects.create(name="test name 1", related=r1)
+        obj2 = models.ExampleModel.objects.create(name="test name 2", related=r2)
+
+        queryset = models.ExampleModel.objects.all()
+
+        class DT(Datatable):
+            related = columns.TextColumn("Related", ['related__name'])
+            class Meta:
+                model = models.ExampleModel
+                columns = ['related']
+                search_fields = ['name']
+
+        dt = DT(queryset, '/', query_config={'search[value]': 'test'})
+        dt.populate_records()
+        self.assertEquals(list(dt._records), [obj1, obj2])
+
+        dt = DT(queryset, '/', query_config={'search[value]': 'test name 2'})
+        dt.populate_records()
+        self.assertEquals(list(dt._records), [obj2])
 
 
 class ValuesDatatableTests(DatatableViewTestCase):

@@ -830,6 +830,7 @@ class ColumnsReferenceDatatableView(DemoMixin, DatatableView):
     datatable_class = None
     implementation = u""""""
 
+
 class HelpersReferenceDatatableView(DemoMixin, XEditableDatatableView):
     """
     ``datatableview.helpers`` is a module decimated to functions that can be supplied directly as
@@ -913,7 +914,7 @@ class PerRequestOptionsDatatableView(DemoMixin, DatatableView):
         class Meta:
             columns = ['id', 'headline']
 
-    class PerRequestOptionsDatatableView(DemoMixin, DatatableView):
+    class PerRequestOptionsDatatableView(DatatableView):
         model = Entry
         datatable_class = MyDatatable
 
@@ -924,6 +925,33 @@ class PerRequestOptionsDatatableView(DemoMixin, DatatableView):
             return datatable
     """
 
+
+class RequestMethodDatatableView(DemoMixin, DatatableView):
+    """
+    Use the ``Meta.request_method`` option to change the ajax request type from ``GET`` to ``POST``.
+    The view will adjust accordingly when responding to ajax queries.
+
+    INFO:
+    When using POST, Django's CSRF token is read from the cookie and sent as a header.  If you get
+    unexpected HTTP 403 errors, confirm that the cookie is correctly set by using Django's
+    ``@ensure_csrf_cookie`` decorator on the method.
+    """
+    model = Entry
+    class datatable_class(Datatable):
+        class Meta:
+            columns = ['id', 'headline']
+            request_method = 'POST'
+
+    implementation = u"""
+    class MyDatatable(Datatable):
+        class Meta:
+            columns = ['id', 'headline']
+            request_method = 'POST'
+
+    class PerRequestOptionsDatatableView(DatatableView):
+        model = Entry
+        datatable_class = MyDatatable
+    """
 
 class CustomModelFieldsDatatableView(DemoMixin, DatatableView):
     """"""
@@ -936,13 +964,13 @@ class CustomModelFieldsDatatableView(DemoMixin, DatatableView):
     implementation = u""""""
 
 
-
 class HeadlineColumn(columns.TextColumn):
     model_field_class = None
 
     def search(self, model, term):
         from django.db.models import Q
         return Q(headline__startswith=term)
+
 
 class CustomColumnQueriesDatatableView(DemoMixin, DatatableView):
     """
@@ -1066,10 +1094,8 @@ class MultipleTablesDatatableView(DemoMixin, MultipleDatatableView):
     requires deviation from the default kwargs.
 
     WARNING:
-    Declaring a custom kwargs getter like ``get_FOO_datatable_kwargs(**kwargs)`` will require you to
-    manually grab a copy of the default kwargs via a call to
-    ``get_default_datatable_kwargs(**kwargs)``, which is provided for you to use.  Think of this
-    like a call to super().
+    You can't call ``super()`` in ``get_FOO_datatable_kwargs(**kwargs)`` to get the default set of
+    ``kwargs``, so they are provided to you automatically via ``**kwargs`` sent to the method.
 
     INFO:
     ``MultipleDatatableView`` does not support the configuration strategy where you declare options
@@ -1093,11 +1119,13 @@ class MultipleTablesDatatableView(DemoMixin, MultipleDatatableView):
     # Demo #1 and Demo # 2 will use variations of the same options.
     class datatable_class(Datatable):
         class Meta:
+            model = Entry
             columns = ['id', 'headline']
 
     # Demo #3 will use completely separate options.
     class blog_datatable_class(Datatable):
         class Meta:
+            model = Blog
             columns = ['id', 'name', 'tagline']
 
     datatable_classes = {
@@ -1126,11 +1154,13 @@ class MultipleTablesDatatableView(DemoMixin, MultipleDatatableView):
     # Demo #1 and Demo #2 will use variations of the same options.
     class EntryDatatable(Datatable):
         class Meta:
+            model = Entry
             columns = ['id', 'headline']
 
     # Demo #3 will use completely separate options.
     class BlogDatatable(Datatable):
         class Meta:
+            model = Blog
             columns = ['id', 'name', 'tagline']
 
     class MultipleTablesDatatableView(MultipleDatatableView):
@@ -1267,7 +1297,7 @@ class SkippedRecordDatatableView(DemoMixin, DatatableView):
                 raise SkipRecord
             return super(MyDatatable, self).get_record_data(obj)
 
-    class SkippedRecordDatatableView(DemoMixin, DatatableView):
+    class SkippedRecordDatatableView(DatatableView):
         model = Entry
         datatable_class = MyDatatable
     """

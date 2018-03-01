@@ -31,8 +31,9 @@ class HelpersTests(DatatableViewTestCase):
             helper(related)
         self.assertEqual(str(cm.exception), "'RelatedM2MModel' object has no attribute 'get_absolute_url'")
 
-        # Verify simple use
+
         instance = ExampleModel.objects.get(pk=1)
+        # Verify simple use
         output = helper(instance)
         self.assertEqual(output, '<a href="#1">ExampleModel 1</a>')
 
@@ -40,8 +41,9 @@ class HelpersTests(DatatableViewTestCase):
         output = helper(instance, text="Special text")
         self.assertEqual(output, '<a href="#1">Special text</a>')
 
-        # Verify ``key`` access to transition an instance to a related field
+
         instance = ExampleModel.objects.get(pk=2)
+        # Verify ``key`` access to transition an instance to a related field
         secondary_helper = helper(key=lambda o: o.related)
         output = secondary_helper(instance)
         self.assertEqual(output, '<a href="#1">RelatedModel object</a>')
@@ -49,6 +51,16 @@ class HelpersTests(DatatableViewTestCase):
         # Verify ``key`` access version of custom text
         output = secondary_helper(instance, text="Special text")
         self.assertEqual(output, '<a href="#1">Special text</a>')
+
+        # Verify ``attr`` as 'self' is the identity mapping
+        secondary_helper = helper(attr='self')
+        output = secondary_helper(instance)
+        self.assertEqual(output, '<a href="#2">ExampleModel 2</a>')
+
+        # Verify ``attr`` as a getattr shorthand lookup
+        secondary_helper = helper(attr='related')
+        output = secondary_helper(instance)
+        self.assertEqual(output, '<a href="#1">RelatedModel object</a>')
 
     def test_make_boolean_checkmark(self):
         """ Verifies that make_boolean_checkmark works. """
